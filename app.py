@@ -1,13 +1,38 @@
-from flask import Flask, request, jsonify
-from agentemotor_cotizador import cotizar_seguro
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from playwright.async_api import async_playwright
+import httpx
+import asyncio
 
-app = Flask(__name__)
+from procesar_cotizacion import procesar_cotizacion
 
-@app.route("/cotizar", methods=["POST"])
-def cotizar():
-    data = request.json
-    resultado = cotizar_seguro(data)
-    return jsonify({"resultado": resultado})
+# 👉 Tu API KEY de 2Captcha
+API_KEY_2CAPTCHA = "1ce42240deeab8e84bb50b73fb2c77c9"
 
-if __name__ == "__main__":
-    app.run(port=5000)
+app = FastAPI(title="Cotizar Seguro ASEDE")
+
+class CotizacionRequest(BaseModel):
+    placa: str
+    tipo_uso: str
+    municipio: str
+    accesorios: int
+    documento: str
+    nombres: str
+    apellidos: str
+    fecha_nacimiento: str
+    genero: str
+    ocupacion: str
+    estado_civil: str
+    telefono: str
+    correo: str
+
+@app.post("/cotizar")
+async def cotizar_seguro(datos: CotizacionRequest):
+
+    try:
+        resultado = await procesar_cotizacion(datos)
+        return resultado
+
+    except Exception as e:
+        print("ERROR EN EL SERVIDOR:", str(e))   # 👈 Agrega este print
+        raise HTTPException(status_code=500, detail=str(e))
