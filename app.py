@@ -13,6 +13,11 @@ API_KEY_2CAPTCHA = "1ce42240deeab8e84bb50b73fb2c77c9"
 
 app = FastAPI(title="Cotizar Seguro ASEDE")
 
+# Ruta raíz para pruebas
+@app.get("/")
+def read_root():
+    return {"mensaje": "API de Cotización ASEDE funcionando"}
+
 class CotizacionRequest(BaseModel):
     placa: str
     tipo_uso: str
