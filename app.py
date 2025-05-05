@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from playwright.async_api import async_playwright
 import httpx
 import asyncio
+import os
+import uvicorn
 
 from procesar_cotizacion import procesar_cotizacion
 
@@ -28,11 +30,13 @@ class CotizacionRequest(BaseModel):
 
 @app.post("/cotizar")
 async def cotizar_seguro(datos: CotizacionRequest):
-
     try:
         resultado = await procesar_cotizacion(datos)
         return resultado
-
     except Exception as e:
-        print("ERROR EN EL SERVIDOR:", str(e))   # 👈 Agrega este print
+        print("ERROR EN EL SERVIDOR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
