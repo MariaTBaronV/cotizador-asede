@@ -1,61 +1,53 @@
-from playwright.sync_api import sync_playwright
+import httpx
+from bs4 import BeautifulSoup
+
+def obtener_info_vehiculo(placa):
+    url = f"https://proaseguros.co.agentemotor.com/vehiculos?plate={placa}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+    }
+    session = httpx.Client(headers=headers, timeout=30.0)
+
+    respuesta = session.get(url)
+    if respuesta.status_code != 200:
+        return f"Error al cargar la página. Código: {respuesta.status_code}"
+
+    soup = BeautifulSoup(respuesta.text, 'html.parser')
+
+    # Buscar datos del vehículo
+    tarjeta = soup.find('div', class_='card-vehicle')
+    if not tarjeta:
+        return "No se encontró la información del vehículo."
+
+    resultado = {}
+
+    # Placa
+    resultado['placa'] = placa
+
+    # Modelo
+    modelo = tarjeta.find(string=lambda text: "Modelo" in text)
+    if modelo:
+        resultado['modelo'] = modelo.parent.find_next_sibling().text.strip()
+
+    # Cilindraje
+    cilindraje = tarjeta.find(string=lambda text: "Cilindraje" in text)
+    if cilindraje:
+        resultado['cilindraje'] = cilindraje.parent.find_next_sibling().text.strip()
+
+    # Precio
+    precio = tarjeta.find(string=lambda text: "Precio de referencia" in text)
+    if precio:
+        resultado['precio_referencia'] = precio.parent.find_next_sibling().text.strip()
+
+    return resultado
 
 def cotizar_seguro(data):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    placa = data.get("placa")
+    if not placa:
+        return {"error": "No se proporcionó placa."}
 
-        # Ir a la página de Agentemotor
-        page.goto("https://proaseguros.co.agentemotor.com/")
+    datos = obtener_info_vehiculo(placa)
+    if isinstance(datos, str):  # si hubo un error
+        return {"error": datos}
 
-        if data.get("placa"):
-            # Búsqueda por Placa
-            page.fill('#plate', data['placa'])
-            page.click('#btn-plate')
-            page.wait_for_selector('.card-vehicle')
-            page.click('text=Es mi vehículo')
-        else:
-            # Búsqueda por referencia (falta implementarlo luego si quieres)
-            return "Actualmente solo soportamos búsqueda por placa."
-
-        # Llenar datos adicionales del vehículo
-        page.click('#plate_type')
-        page.get_by_text('Particular').click()
-
-        page.click('#use_type')
-        page.get_by_text(data['tipo_uso']).click()
-
-        page.fill('#accesories_price', str(data['accesorios']))
-
-        page.fill('#ubication', data['municipio'])
-        page.click('text=Siguiente')
-
-        # Llenar datos del propietario
-        page.click('#identification_type')
-        page.get_by_text('Cédula de ciudadania').click()
-
-        page.fill('#identification_number', data['documento'])
-        page.fill('#first_name', data['nombres'])
-        page.fill('#last_name', data['apellidos'])
-        page.fill('#birth_date', data['fecha_nacimiento'])  # Formato YYYY-MM-DD
-
-        # Género
-        page.check(f'input[value="{data["genero"]}"]')  # "M" o "F"
-
-        page.click('#occupation')
-        page.get_by_text(data['ocupacion']).click()
-
-        page.click('#marital_status')
-        page.get_by_text(data['estado_civil']).click()
-
-        page.fill('#phone', data['telefono'])
-        page.fill('#email', data['correo'])
-
-        # Aceptar términos
-        page.check('#agree_terms')
-
-        # Aquí no automatizamos el reCAPTCHA (lo hace el usuario)
-
-        browser.close()
-        return "Cotización preparada. Por favor finaliza el reCAPTCHA manualmente."
-
+    return {"cotizacion": datos}
