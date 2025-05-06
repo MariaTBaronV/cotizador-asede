@@ -3,3 +3,4 @@ playwright
 fastapi
 httpx
 uvicorn
+beautifulsoup4
