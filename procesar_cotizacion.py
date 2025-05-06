@@ -1,45 +1,63 @@
-import asyncio
-import httpx
-import time
+from playwright.async_api import async_playwright
+from captcha_solver import resolver_captcha
 
-API_KEY = "1ce42240deeab8e84bb50b73fb2c77c9"
+async def procesar_cotizacion(datos):
 
-async def resolver_captcha(sitekey, url):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
 
-    # 1. Enviar captcha a 2Captcha
-    payload = {
-        'key': API_KEY,
-        'method': 'userrecaptcha',
-        'googlekey': sitekey,
-        'pageurl': url,
-        'json': 1
-    }
+        url_formulario = "https://proaseguros.co.agentemotor.com/"
+        await page.goto(url_formulario)
 
-    async with httpx.AsyncClient() as client:
-        r = await client.post('http://2captcha.com/in.php', data=payload)
-        request_result = r.json()
+        # 📝 1. Llenar placa y tipo de uso (simulando)
+        await page.fill('input[name="plate"]', datos.placa)
+        await page.click('button:has-text("Buscar")')
 
-    if request_result['status'] != 1:
-        raise Exception("Error enviando captcha a 2Captcha")
+        # 👁 Esperar que cargue la siguiente sección
+        await page.wait_for_selector('input[name="identification_number"]', timeout=30000)
 
-    captcha_id = request_result['request']
+        # 📝 2. Llenar datos personales
+        await page.fill('input[name="identification_number"]', datos.documento)
+        await page.fill('input[name="first_name"]', datos.nombres)
+        await page.fill('input[name="last_name"]', datos.apellidos)
+        await page.fill('input[name="birth_date"]', datos.fecha_nacimiento)
+        await page.fill('input[name="phone"]', datos.telefono)
+        await page.fill('input[name="email"]', datos.correo)
 
-    # 2. Esperar y consultar el resultado
-    for _ in range(20):
-        await asyncio.sleep(5)
+        # 📝 Seleccionar género
+        if datos.genero == "M":
+            await page.click('input[value="M"]')
+        else:
+            await page.click('input[value="F"]')
 
-        params = {
-            'key': API_KEY,
-            'action': 'get',
-            'id': captcha_id,
-            'json': 1
-        }
+        # 📝 Otros campos (ocupacion, estado civil, etc.) pueden ser con select o input
+        # NOTA: aquí debes adaptar dependiendo de cómo sean esos campos en el DOM real
 
-        async with httpx.AsyncClient() as client:
-            res = await client.get('http://2captcha.com/res.php', params=params)
-            result = res.json()
+        # ✅ 3. Resolver reCAPTCHA
+        frame = page.frame_locator('iframe[title="reCAPTCHA"]')
+        sitekey = await frame.get_attribute('//*[@title="reCAPTCHA"]', 'src')
+        sitekey = sitekey.split("k=")[1].split("&")[0]
 
-        if result['status'] == 1:
-            return result['request']
+        token = await resolver_captcha(sitekey, url_formulario)
 
-    raise Exception("Captcha no resuelto a tiempo")
+        # 📝 4. Insertar token en el campo g-recaptcha-response
+        await page.evaluate(f'''document.getElementById("g-recaptcha-response").innerHTML = "{token}";''')
+
+        # 📝 5. Hacer clic en Cotizar
+        await page.click('button:has-text("Cotizar")')
+
+        # 👁 6. Esperar resultados
+        await page.wait_for_selector('.policy-card', timeout=60000)
+
+        cards = await page.locator('.policy-card').all()
+
+        resultados = []
+        for card in cards:
+            titulo = await card.locator('.card-head-title-style').inner_text()
+            precio = await card.locator('.card-price-span').inner_text()
+            resultados.append({"plan": titulo, "precio": precio})
+
+        await browser.close()
+
+        return {"cotizaciones": resultados}
