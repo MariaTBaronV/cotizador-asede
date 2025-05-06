@@ -53,11 +53,27 @@ async def procesar_cotizacion(datos):
         cards = await page.locator('.policy-card').all()
 
         resultados = []
-        for card in cards:
-            titulo = await card.locator('.card-head-title-style').inner_text()
-            precio = await card.locator('.card-price-span').inner_text()
-            resultados.append({"plan": titulo, "precio": precio})
+for card in cards:
+    titulo = await card.locator('.card-head-title-style').inner_text()
+    precio = await card.locator('.card-price-span').inner_text()
+    aseguradora = await card.locator('.company-name').inner_text()
 
-        await browser.close()
+    # Limpiar precio
+    valor_prima = int(precio.replace("$", "").replace(".", "").replace(",", "").strip())
+
+    # Obtener coberturas
+    coberturas = []
+    coberturas_elementos = await card.locator('.coverage-list li').all()
+    for cobertura in coberturas_elementos:
+        texto = await cobertura.inner_text()
+        coberturas.append(texto)
+
+    resultados.append({
+        "aseguradora": aseguradora,
+        "plan": titulo,
+        "valor_prima": valor_prima,
+        "coberturas_principales": coberturas
+    })
+
 
         return {"cotizaciones": resultados}
