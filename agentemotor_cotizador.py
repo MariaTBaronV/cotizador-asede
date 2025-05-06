@@ -7,7 +7,7 @@ def obtener_info_vehiculo(placa):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     }
-    session = httpx.Client(headers=headers, timeout=30.0)
+    session = httpx.Client(headers=headers, timeout=300.0)
 
     respuesta = session.get(url)
     if respuesta.status_code != 200:
@@ -57,7 +57,7 @@ def cotizar_seguro(data):
         page.click('#btn-plate')
 
         # Seleccionar el vehículo
-        page.wait_for_selector('.card-vehicle', timeout=30000)
+        page.wait_for_selector('.card-vehicle', timeout=60000)
         page.click('text=Es mi vehículo')
 
         # Datos del vehículo
@@ -98,7 +98,7 @@ def cotizar_seguro(data):
         # Hacer clic en "Cotizar"
         page.click('text=Cotizar')
 
-        page.wait_for_selector('.policy-card', timeout=60000)
+        page.wait_for_selector('.policy-card', timeout=120000)
 
         cards = page.locator('.policy-card').all()
 
