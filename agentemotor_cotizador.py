@@ -123,6 +123,8 @@ def cotizar_seguro(data):
                 "coberturas_principales": coberturas
             })
 
+        print("Cotizaciones encontradas:", resultados)  # 👈 Este print nos dirá en el log si encuentra planes
+
         browser.close()
 
         return {"cotizaciones": resultados}
