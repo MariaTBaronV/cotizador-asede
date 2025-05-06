@@ -1,5 +1,6 @@
 import httpx
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 def obtener_info_vehiculo(placa):
     url = f"https://proaseguros.co.agentemotor.com/vehiculos?plate={placa}"
@@ -41,13 +42,87 @@ def obtener_info_vehiculo(placa):
 
     return resultado
 
+
 def cotizar_seguro(data):
-    placa = data.get("placa")
-    if not placa:
-        return {"error": "No se proporcionó placa."}
+    with sync_playwright() as p:
+        # Conexión con Browserless
+        browser = p.chromium.connect_over_cdp("wss://chrome.browserless.io?token=SGBIhxdnzd9X5221dc6414af0d58022b6795405ab0")
+        page = browser.new_page()
 
-    datos = obtener_info_vehiculo(placa)
-    if isinstance(datos, str):  # si hubo un error
-        return {"error": datos}
+        # Ir a la página de Agentemotor
+        page.goto("https://proaseguros.co.agentemotor.com/")
 
-    return {"cotizacion": datos}
+        # Búsqueda por Placa
+        page.fill('#plate', data['placa'])
+        page.click('#btn-plate')
+        page.wait_for_selector('.card-vehicle')
+        page.click('text=Es mi vehículo')
+
+        # Llenar datos adicionales del vehículo
+        page.click('#plate_type')
+        page.get_by_text('Particular').click()
+
+        page.click('#use_type')
+        page.get_by_text(data['tipo_uso']).click()
+
+        page.fill('#accesories_price', str(data['accesorios']))
+        page.fill('#ubication', data['municipio'])
+        page.click('text=Siguiente')
+
+        # Llenar datos del propietario
+        page.click('#identification_type')
+        page.get_by_text('Cédula de ciudadania').click()
+
+        page.fill('#identification_number', data['documento'])
+        page.fill('#first_name', data['nombres'])
+        page.fill('#last_name', data['apellidos'])
+        page.fill('#birth_date', data['fecha_nacimiento'])  # Formato YYYY-MM-DD
+
+        # Género
+        page.check(f'input[value="{data["genero"]}"]')  # "M" o "F"
+
+        page.click('#occupation')
+        page.get_by_text(data['ocupacion']).click()
+
+        page.click('#marital_status')
+        page.get_by_text(data['estado_civil']).click()
+
+        page.fill('#phone', data['telefono'])
+        page.fill('#email', data['correo'])
+
+        # Aceptar términos
+        page.check('#agree_terms')
+
+        # Hacer clic en "Cotizar"
+        page.click('text=Cotizar')
+
+        # Esperar que aparezcan los planes
+        page.wait_for_selector('.policy-card', timeout=60000)
+
+        # Scraping de los precios
+        cards = page.locator('.policy-card').all()
+
+        resultados = []
+        for card in cards:
+            titulo = card.locator('.card-head-title-style').inner_text()
+            precio = card.locator('.card-price-span').inner_text()
+            aseguradora = card.locator('.company-name').inner_text()
+
+            valor_prima = int(precio.replace("$", "").replace(".", "").replace(",", "").strip())
+
+            coberturas = []
+            coberturas_elementos = card.locator('.coverage-list li').all()
+            for cobertura in coberturas_elementos:
+                texto = cobertura.inner_text()
+                coberturas.append(texto)
+
+            resultados.append({
+                "aseguradora": aseguradora,
+                "plan": titulo,
+                "valor_prima": valor_prima,
+                "coberturas_principales": coberturas
+            })
+
+        browser.close()
+
+        return {"cotizaciones": resultados}
