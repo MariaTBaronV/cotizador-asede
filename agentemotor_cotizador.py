@@ -15,50 +15,52 @@ def obtener_info_vehiculo(placa):
 
     soup = BeautifulSoup(respuesta.text, 'html.parser')
 
-    # Buscar datos del vehículo
     tarjeta = soup.find('div', class_='card-vehicle')
     if not tarjeta:
         return "No se encontró la información del vehículo."
 
-    resultado = {}
+    resultado = {
+        'placa': placa
+    }
 
-    # Placa
-    resultado['placa'] = placa
-
-    # Modelo
     modelo = tarjeta.find(string=lambda text: "Modelo" in text)
     if modelo:
         resultado['modelo'] = modelo.parent.find_next_sibling().text.strip()
 
-    # Cilindraje
     cilindraje = tarjeta.find(string=lambda text: "Cilindraje" in text)
     if cilindraje:
         resultado['cilindraje'] = cilindraje.parent.find_next_sibling().text.strip()
 
-    # Precio
     precio = tarjeta.find(string=lambda text: "Precio de referencia" in text)
     if precio:
         resultado['precio_referencia'] = precio.parent.find_next_sibling().text.strip()
 
     return resultado
 
-
 def cotizar_seguro(data):
     with sync_playwright() as p:
-        # Conexión con Browserless
-        browser = p.chromium.connect_over_cdp("wss://chrome.browserless.io?token=SGBIhxdnzd9X5221dc6414af0d58022b6795405ab0")
+        browser = p.chromium.connect_over_cdp(
+            "wss://chrome.browserless.io?token=SGBIhxdnzd9X5221dc6414af0d58022b6795405ab0"
+        )
         page = browser.new_page()
 
-        # Ir a la página de Agentemotor
         page.goto("https://proaseguros.co.agentemotor.com/")
 
-        # Búsqueda por Placa
+        # Llenar placa
         page.fill('#plate', data['placa'])
+
+        # Esperar que el botón esté habilitado antes de hacer clic
+        page.wait_for_function(
+            "document.querySelector('#btn-plate') && !document.querySelector('#btn-plate').disabled",
+            timeout=30000
+        )
         page.click('#btn-plate')
-        page.wait_for_selector('.card-vehicle')
+
+        # Seleccionar el vehículo
+        page.wait_for_selector('.card-vehicle', timeout=30000)
         page.click('text=Es mi vehículo')
 
-        # Llenar datos adicionales del vehículo
+        # Datos del vehículo
         page.click('#plate_type')
         page.get_by_text('Particular').click()
 
@@ -69,17 +71,17 @@ def cotizar_seguro(data):
         page.fill('#ubication', data['municipio'])
         page.click('text=Siguiente')
 
-        # Llenar datos del propietario
+        # Datos del propietario
         page.click('#identification_type')
         page.get_by_text('Cédula de ciudadania').click()
 
         page.fill('#identification_number', data['documento'])
         page.fill('#first_name', data['nombres'])
         page.fill('#last_name', data['apellidos'])
-        page.fill('#birth_date', data['fecha_nacimiento'])  # Formato YYYY-MM-DD
+        page.fill('#birth_date', data['fecha_nacimiento'])
 
         # Género
-        page.check(f'input[value="{data["genero"]}"]')  # "M" o "F"
+        page.check(f'input[value="{data["genero"]}"]')
 
         page.click('#occupation')
         page.get_by_text(data['ocupacion']).click()
@@ -96,10 +98,8 @@ def cotizar_seguro(data):
         # Hacer clic en "Cotizar"
         page.click('text=Cotizar')
 
-        # Esperar que aparezcan los planes
         page.wait_for_selector('.policy-card', timeout=60000)
 
-        # Scraping de los precios
         cards = page.locator('.policy-card').all()
 
         resultados = []
