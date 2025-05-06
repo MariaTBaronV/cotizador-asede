@@ -74,6 +74,4 @@ for card in cards:
         "valor_prima": valor_prima,
         "coberturas_principales": coberturas
     })
-
-
-        return {"cotizaciones": resultados}
+return {"cotizaciones": resultados}
