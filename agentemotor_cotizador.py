@@ -45,16 +45,10 @@ def cotizar_seguro(data):
         try:
             page = browser.new_page()
 
-            page.goto("https://proaseguros.co.agentemotor.com/")
+            # 👉 Ir directamente a la página con la placa ya cargada
+            page.goto(f"https://proaseguros.co.agentemotor.com/vehiculos?plate={data['placa']}")
 
-            page.fill('#plate', data['placa'])
-
-            page.wait_for_function(
-                "document.querySelector('#btn-plate') && !document.querySelector('#btn-plate').disabled",
-                timeout=30000
-            )
-            page.click('#btn-plate')
-
+            # Esperar que cargue la información del vehículo
             page.wait_for_selector('.card-vehicle', timeout=60000)
             page.click('text=Es mi vehículo')
 
@@ -116,7 +110,6 @@ def cotizar_seguro(data):
                     "coberturas_principales": coberturas
                 })
 
-            # 🔥 Agregado: mostrar en consola qué cotizaciones encontró
             print("Cotizaciones encontradas:", resultados)
 
             return {"cotizaciones": resultados}
