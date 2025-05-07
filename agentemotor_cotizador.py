@@ -116,8 +116,14 @@ def cotizar_seguro(data):
                     "coberturas_principales": coberturas
                 })
 
+            # 🔥 Agregado: mostrar en consola qué cotizaciones encontró
+            print("Cotizaciones encontradas:", resultados)
+
             return {"cotizaciones": resultados}
 
+        except Exception as e:
+            print("ERROR EN EL SCRAPING:", str(e))
+            return {"cotizaciones": [], "error": str(e)}
+
         finally:
-            # ✅ Muy importante: cerrar siempre el navegador
             browser.close()
