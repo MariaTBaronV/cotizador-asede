@@ -30,13 +30,14 @@ class CotizacionRequest(BaseModel):
 def cotizar(datos: CotizacionRequest):
     datos_dict = datos.dict()
 
-    # Ejecutar el scraping y obtener las cotizaciones
+    # Ejecutar el scraping y obtener las cotizaciones y datos del vehículo
     resultado = cotizar_seguro(datos_dict)
 
-    # 🔥 Aquí ya devuelves las cotizaciones directamente al GPT
+    # 🔥 Ahora también devolvemos los datos del vehículo
     return {
         "mensaje": "Cotización completada.",
-        "cotizaciones": resultado["cotizaciones"]
+        "cotizaciones": resultado["cotizaciones"],
+        "datos_vehiculo": resultado.get("datos_vehiculo", {})
     }
 
 # -------------------------------
