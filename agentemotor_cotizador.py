@@ -45,6 +45,8 @@ def cotizar_seguro(data):
         try:
             page = browser.new_page()
 
+            print("Iniciando cotización para placa:", data['placa'])
+
             # 👉 Ir directamente a la página con la placa ya cargada
             page.goto(f"https://proaseguros.co.agentemotor.com/vehiculos?plate={data['placa']}")
 
@@ -53,7 +55,7 @@ def cotizar_seguro(data):
             page.click('text=Es mi vehículo')
 
             page.click('#plate_type')
-            # 👇 Cambio importante: usar get_by_role para evitar el error de elementos duplicados
+            # ✅ Cambio definitivo: usar get_by_role para evitar el error de elementos duplicados
             page.get_by_role("option", name="Particular").click()
 
             page.click('#use_type')
