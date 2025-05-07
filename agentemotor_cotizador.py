@@ -53,7 +53,8 @@ def cotizar_seguro(data):
             page.click('text=Es mi vehículo')
 
             page.click('#plate_type')
-            page.get_by_text('Particular').click()
+            # 👇 Cambio importante: usar get_by_role para evitar el error de elementos duplicados
+            page.get_by_role("option", name="Particular").click()
 
             page.click('#use_type')
             page.get_by_text(data['tipo_uso']).click()
