@@ -6,6 +6,7 @@ from datetime import datetime
 
 app = FastAPI(title="Crear alerta de seguro ASEDE")
 
+# 🔹 Modelo de datos que recibe la API
 class CotizacionRequest(BaseModel):
     placa: str
     tipo_uso: str
@@ -21,12 +22,14 @@ class CotizacionRequest(BaseModel):
     telefono: str
     correo: str
 
+# 🔹 Endpoint para crear alerta
 @app.post("/crear-alerta-cotizacion/")
 def crear_alerta(datos: CotizacionRequest):
     HUBSPOT_API_KEY = os.getenv("HUBSPOT_API_KEY")
-    HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
+    HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")  # Opcional
 
     nombre_completo = f"{datos.nombres} {datos.apellidos}"
+    timestamp = datetime.utcnow().isoformat() + "Z"
 
     mensaje = (
         f"🚗 Nueva solicitud de cotización recibida:\n\n"
@@ -39,9 +42,6 @@ def crear_alerta(datos: CotizacionRequest):
         f"🚘 Vehículo: Placa {datos.placa}, Uso: {datos.tipo_uso}, Municipio: {datos.municipio}\n"
         f"🔧 Valor accesorios: ${datos.accesorios:,}"
     )
-
-    # Usamos timestamp actual en formato ISO 8601
-    timestamp = datetime.utcnow().isoformat() + "Z"
 
     payload = {
         "properties": {
@@ -61,6 +61,10 @@ def crear_alerta(datos: CotizacionRequest):
         json=payload
     )
 
+    # 🔍 Logs para depuración
+    print("Status:", response.status_code)
+    print("HubSpot response:", response.text)
+
     if response.status_code == 201:
         return {"message": "✅ Alerta creada en HubSpot", "hubspot_id": response.json().get("id")}
     else:
@@ -68,3 +72,9 @@ def crear_alerta(datos: CotizacionRequest):
             "error": "❌ No se pudo crear la alerta",
             "detalle": response.json()
         }, response.status_code
+
+# 🔹 Ejecución local (opcional para desarrollo)
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
