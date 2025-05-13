@@ -2,11 +2,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import os
 import requests
-from twilio.rest import Client  # opcional, puedes eliminarlo si no lo usas
+from datetime import datetime
 
 app = FastAPI(title="Crear alerta de seguro ASEDE")
 
-# 🔹 Modelo de datos recibidos del cliente
 class CotizacionRequest(BaseModel):
     placa: str
     tipo_uso: str
@@ -22,11 +21,10 @@ class CotizacionRequest(BaseModel):
     telefono: str
     correo: str
 
-# 🔹 Endpoint para recibir solicitud de cotización y crear alerta en HubSpot
 @app.post("/crear-alerta-cotizacion/")
 def crear_alerta(datos: CotizacionRequest):
     HUBSPOT_API_KEY = os.getenv("HUBSPOT_API_KEY")
-    HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")  # opcional, si usas propiedad fija
+    HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")
 
     nombre_completo = f"{datos.nombres} {datos.apellidos}"
 
@@ -42,11 +40,14 @@ def crear_alerta(datos: CotizacionRequest):
         f"🔧 Valor accesorios: ${datos.accesorios:,}"
     )
 
+    # Usamos timestamp actual en formato ISO 8601
+    timestamp = datetime.utcnow().isoformat() + "Z"
+
     payload = {
         "properties": {
-            "hs_timestamp": "2025-05-12T10:00:00Z",
-            "hs_task_body": mensaje,
+            "hs_timestamp": timestamp,
             "hs_task_subject": f"Cotización Vehículo - {nombre_completo}",
+            "hs_task_body": mensaje,
             "hs_task_status": "NOT_STARTED",
             "hs_task_priority": "HIGH"
         }
@@ -67,9 +68,3 @@ def crear_alerta(datos: CotizacionRequest):
             "error": "❌ No se pudo crear la alerta",
             "detalle": response.json()
         }, response.status_code
-
-# 🔹 Ejecución local (Render ignora esto)
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port)
