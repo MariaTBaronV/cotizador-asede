@@ -26,7 +26,7 @@ class CotizacionRequest(BaseModel):
 @app.post("/crear-alerta-cotizacion/")
 def crear_alerta(datos: CotizacionRequest):
     HUBSPOT_API_KEY = os.getenv("HUBSPOT_API_KEY")
-    HUBSPOT_OWNER_ID = os.getenv("HUBSPOT_OWNER_ID")  # Opcional
+
 
     nombre_completo = f"{datos.nombres} {datos.apellidos}"
     timestamp = datetime.utcnow().isoformat() + "Z"
