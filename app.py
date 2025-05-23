@@ -120,7 +120,8 @@ def responder_con_gpt(mensaje_usuario: str) -> str:
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
     try:
-        respuesta = openai.ChatCompletion.create(
+        respuesta = openai.chat.completions.create(
+
             model="gpt-3.5-turbo",
             messages=[
                 {
@@ -136,7 +137,8 @@ def responder_con_gpt(mensaje_usuario: str) -> str:
             max_tokens=250,
             temperature=0.7
         )
-        return respuesta.choices[0].message.content.strip()
+        return respuesta.choices[0].message.content
+
     except Exception as e:
         print("❌ Error GPT:", e)
         return "Lo siento, hubo un problema al procesar tu solicitud. ¿Puedes repetirla?"
