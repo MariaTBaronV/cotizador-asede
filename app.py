@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import requests
 import openai
+from consultar_base import buscar_en_base  # <== integración de FAISS
 
 app = FastAPI(title="Crear alerta de seguro ASEDE")
 
@@ -115,33 +116,31 @@ def enviar_mensaje_whatsapp(texto: str, numero: str):
     response = requests.post(url, headers=headers, json=data)
     print("📤 Respuesta enviada:", response.status_code, response.text)
 
-# 🔹 Generar respuesta con GPT
+# 🔹 Generar respuesta con GPT usando contexto de documentos
 def responder_con_gpt(mensaje_usuario: str) -> str:
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+    contexto = buscar_en_base(mensaje_usuario)
+
+    prompt = (
+        "Eres Axel, un asesor experto en seguros de ASEDE. "
+        "Responde exclusivamente con base en el siguiente contexto de pólizas y documentos legales:\n\n"
+        f"{contexto}\n\n"
+        f"Pregunta: {mensaje_usuario}"
+    )
 
     try:
         respuesta = openai.chat.completions.create(
-
             model="gpt-3.5-turbo",
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Eres Axel, un asesor virtual experto en seguros vehiculares de ASEDE. "
-                        "Responde de forma clara, útil y profesional a preguntas sobre seguros, coberturas, "
-                        "cotizaciones, pólizas, deducibles y asistencia."
-                    )
-                },
-                {"role": "user", "content": mensaje_usuario}
+                {"role": "system", "content": "Responde en español de forma clara, profesional y concreta."},
+                {"role": "user", "content": prompt}
             ],
-            max_tokens=250,
+            max_tokens=500,
             temperature=0.7
         )
         return respuesta.choices[0].message.content
-
     except Exception as e:
         print("❌ Error GPT:", e)
-        return "Lo siento, hubo un problema al procesar tu solicitud. ¿Puedes repetirla?"
+        return "Lo siento, tuve un problema al procesar tu solicitud."
 
 # 🔹 Webhook principal de WhatsApp
 @app.post("/webhook")
