@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime
 import os
 import requests
+import openai
 
 app = FastAPI(title="Crear alerta de seguro ASEDE")
 
@@ -79,10 +80,9 @@ def crear_alerta(datos: CotizacionRequest):
             "detalle": response.json()
         }, response.status_code
 
-# 🔹 Token para verificar el webhook
+# 🔹 Verificación del webhook de Meta
 VERIFY_TOKEN = "Marco_2020"
 
-# 🔹 Verificación GET desde Meta
 @app.get("/webhook", response_class=PlainTextResponse)
 async def verificar_webhook(
     hub_mode: str = Query(default=None, alias="hub.mode"),
@@ -93,7 +93,7 @@ async def verificar_webhook(
         return hub_challenge
     return PlainTextResponse("Token inválido", status_code=403)
 
-# 🔹 Función para responder por WhatsApp
+# 🔹 Enviar mensaje por WhatsApp
 def enviar_mensaje_whatsapp(texto: str, numero: str):
     url = "https://graph.facebook.com/v22.0/682672741587063/messages"
     token = os.getenv("WHATSAPP_TOKEN")
@@ -115,20 +115,52 @@ def enviar_mensaje_whatsapp(texto: str, numero: str):
     response = requests.post(url, headers=headers, json=data)
     print("📤 Respuesta enviada:", response.status_code, response.text)
 
-# 🔹 POST para recibir mensajes desde WhatsApp
+# 🔹 Generar respuesta con GPT
+def responder_con_gpt(mensaje_usuario: str) -> str:
+    openai.api_key = os.getenv("OPENAI_API_KEY")
+
+    try:
+        respuesta = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres Axel, un asesor virtual experto en seguros vehiculares de ASEDE. "
+                        "Responde de forma clara, útil y profesional a preguntas sobre seguros, coberturas, "
+                        "cotizaciones, pólizas, deducibles y asistencia."
+                    )
+                },
+                {"role": "user", "content": mensaje_usuario}
+            ],
+            max_tokens=250,
+            temperature=0.7
+        )
+        return respuesta.choices[0].message.content.strip()
+    except Exception as e:
+        print("❌ Error GPT:", e)
+        return "Lo siento, hubo un problema al procesar tu solicitud. ¿Puedes repetirla?"
+
+# 🔹 Webhook principal de WhatsApp
 @app.post("/webhook")
 async def recibir_mensaje(request: Request):
     body = await request.json()
     try:
-        mensaje = body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
-        numero = body["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+        changes = body.get("entry", [])[0].get("changes", [])[0].get("value", {})
+        if "messages" not in changes:
+            print("ℹ️ Evento sin mensajes. Ignorado.")
+            return {"status": "ok"}
+
+        mensaje = changes["messages"][0]["text"]["body"]
+        numero = changes["messages"][0]["from"]
 
         print(f"📩 Mensaje recibido de {numero}: {mensaje}")
 
-        respuesta = f"Hola 👋 soy Axel, tu asesor de ASEDE. ¿En qué puedo ayudarte hoy?"
+        respuesta = responder_con_gpt(mensaje)
         enviar_mensaje_whatsapp(respuesta, numero)
 
         return {"status": "mensaje recibido"}
+
     except Exception as e:
         print("⚠️ Error al procesar mensaje:", e)
         return {"error": str(e)}, 400
