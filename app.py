@@ -1,12 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
+from datetime import datetime
 import os
 import requests
-from datetime import datetime
 
 app = FastAPI(title="Crear alerta de seguro ASEDE")
 
-# 🔹 Modelo de datos
+# 🔹 Modelo para crear alerta de cotización
 class CotizacionRequest(BaseModel):
     placa: str
     tipo_uso: str
@@ -55,7 +56,6 @@ def crear_alerta(datos: CotizacionRequest):
     if HUBSPOT_OWNER_ID:
         payload["properties"]["hubspot_owner_id"] = HUBSPOT_OWNER_ID
 
-    # ✅ Nuevo método de autenticación con Bearer Token
     headers = {
         "Authorization": f"Bearer {HUBSPOT_API_KEY}",
         "Content-Type": "application/json"
@@ -67,7 +67,6 @@ def crear_alerta(datos: CotizacionRequest):
         json=payload
     )
 
-    # 🔍 Logs para depuración
     print("Status:", response.status_code)
     print("HubSpot response:", response.text)
 
@@ -78,6 +77,30 @@ def crear_alerta(datos: CotizacionRequest):
             "error": "❌ No se pudo crear la alerta",
             "detalle": response.json()
         }, response.status_code
+
+# 🔹 Webhook para WhatsApp (verificación + recepción de mensajes)
+VERIFY_TOKEN = "Marco_2020"  
+
+@app.get("/webhook", response_class=PlainTextResponse)
+async def verificar_webhook(hub_mode: str = "", hub_challenge: str = "", hub_verify_token: str = ""):
+    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
+        return hub_challenge
+    return PlainTextResponse("Token inválido", status_code=403)
+
+@app.post("/webhook")
+async def recibir_mensaje(request: Request):
+    body = await request.json()
+    try:
+        mensaje = body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+        numero = body["entry"][0]["changes"][0]["value"]["messages"][0]["from"]
+
+        print(f"📩 Mensaje recibido de {numero}: {mensaje}")
+        # Aquí puedes conectar con Axel o enviar una respuesta
+
+        return {"status": "mensaje recibido"}
+    except Exception as e:
+        print("⚠️ Error al procesar mensaje:", e)
+        return {"error": str(e)}, 400
 
 if __name__ == "__main__":
     import uvicorn
