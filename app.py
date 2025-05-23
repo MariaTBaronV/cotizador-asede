@@ -82,8 +82,12 @@ def crear_alerta(datos: CotizacionRequest):
 VERIFY_TOKEN = "Marco_2020"  
 
 @app.get("/webhook", response_class=PlainTextResponse)
-async def verificar_webhook(hub_mode: str = "", hub_challenge: str = "", hub_verify_token: str = ""):
-    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
+async def verificar_webhook(
+    hub_mode: str = Query(default=None, alias="hub.mode"),
+    hub_challenge: str = Query(default=None, alias="hub.challenge"),
+    hub_verify_token: str = Query(default=None, alias="hub.verify_token")
+):
+    if hub_mode == "subscribe" and hub_verify_token == "Marco_2020":
         return hub_challenge
     return PlainTextResponse("Token inválido", status_code=403)
 
