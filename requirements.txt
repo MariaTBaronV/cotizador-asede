@@ -3,3 +3,7 @@ httpx
 uvicorn
 twilio
 openai
+faiss-cpu
+PyMuPDF
+openai
+tiktoken
