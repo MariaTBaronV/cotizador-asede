@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from datetime import datetime
+from fastapi import Query
 import os
 import requests
 
